@@ -1,0 +1,11 @@
+*
+
+
+!*/
+
+!*.cpp
+!*.h
+!.gitignore
+!*.hpp
+!CMakeLists.txt
+!README.md
