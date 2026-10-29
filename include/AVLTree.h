@@ -23,6 +23,7 @@ private:
     struct Node
     {
         T data;
+        // Y key; Добавить key и компаратор сравнивает по нему
         int height;
         std::unique_ptr<Node> left_child;
         std::unique_ptr<Node> right_child;
@@ -200,7 +201,7 @@ private:
     }
 
     void map_rec(const Node* node, const std::function<T(const T&)>& f, AVLTree& result) const
-    {
+    { // U->T
         if (node == nullptr) return;
 
         map_rec(node->left_child.get(), f, result);
@@ -343,7 +344,7 @@ public:
         return acc;
     }
     
-    AVLTree get_subtree(const T& value) const
+    AVLTree get_subtree(const T& value) const // std::optional добавить
     {
         const Node* current = root_.get();
         while(current != nullptr)
@@ -373,3 +374,12 @@ public:
 
 };
 
+
+
+
+/*
+1. Сделать итератор (добавить выбор порядка обхода)
+2. map-where-reduce должны работать через итератор (через интерфейс или концепт)
+3. из 2 лабы мб добавить интерфейс idictionary
+4. добавить key 
+*/
