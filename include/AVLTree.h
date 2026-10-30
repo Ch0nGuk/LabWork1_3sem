@@ -4,6 +4,7 @@
 #include <algorithm> // std::max
 #include <stdexcept>
 #include <functional>
+#include <optional>
 
 
 template <class T> // функтор компаратор по умолчанию. Функтор -- объект, который можно вызывать как функцию. 
@@ -16,19 +17,19 @@ struct Less        // Т.е. это класс или структура, в к�
 };
 
 
-template <class T, class Comparator = Less<T>>
+template <class K, class V, class Comparator = Less<K>>
 class AVLTree
 {
 private:
     struct Node
     {
-        T data;
-        // Y key; Добавить key и компаратор сравнивает по нему
+        K key;
+        V value;
         int height;
         std::unique_ptr<Node> left_child;
         std::unique_ptr<Node> right_child;
 
-        Node(const T& data_) : data(data_), height(1), left_child(), right_child() {} 
+        Node(const K& key_, const V& value_) : key(key_), value(value_), height(1), left_child(), right_child() {} 
     };
 
     std::unique_ptr<Node> root_;
@@ -66,23 +67,23 @@ private:
 
     }
 
-    bool insert_rec(const T& value, std::unique_ptr<Node>& slot)
+    bool insert_rec(const K& key, const V& value, std::unique_ptr<Node>& slot)
     {
         bool ok = false;
 
         if (slot == nullptr)
         {
-            slot = std::make_unique<Node>(value);
+            slot = std::make_unique<Node>(key, value);
             size_++;
             return true;
         }
-        if (comp_(slot->data, value))
+        if (comp_(slot->key, key))
         {
-            ok = insert_rec(value, slot->right_child);
+            ok = insert_rec(key, value, slot->right_child);
         }
-        else if (comp_(value, slot->data))
+        else if (comp_(key, slot->key))
         {
-            ok = insert_rec(value, slot->left_child);
+            ok = insert_rec(key, value, slot->left_child);
         }
         else
         {
@@ -98,21 +99,21 @@ private:
         return ok;
     }
 
-    void remove_rec(const T& value, std::unique_ptr<Node>& slot)
+    void remove_rec(const K& key, std::unique_ptr<Node>& slot)
     {
         if (slot.get() == nullptr) // элемент не найден
         {
             throw std::logic_error("Removable value isn't in tree");
         }
-        if (comp_(slot->data, value))
+        if (comp_(slot->key, key))
         {
-            remove_rec(value, slot->right_child);
+            remove_rec(key, slot->right_child);
             update_height(slot.get());
             balance(slot);
         }
-        else if (comp_(value, slot->data))
+        else if (comp_(key, slot->key))
         {
-            remove_rec(value, slot->left_child);
+            remove_rec(key, slot->left_child);
             update_height(slot.get());
             balance(slot);
         }
@@ -200,39 +201,39 @@ private:
         rotate_r(slot);
     }
 
-    void map_rec(const Node* node, const std::function<T(const T&)>& f, AVLTree& result) const
-    { // U->T
-        if (node == nullptr) return;
+    // void map_rec(const Node* node, const std::function<T(const T&)>& f, AVLTree& result) const
+    // { // U->T
+    //     if (node == nullptr) return;
 
-        map_rec(node->left_child.get(), f, result);
-        result.insert(f(node->data));
-        map_rec(node->right_child.get(), f, result);
-    }
-    void where_rec(const Node* node, const std::function<bool(const T&)>& pred, AVLTree& result) const
-    {
-        if (node == nullptr) return;
+    //     map_rec(node->left_child.get(), f, result);
+    //     result.insert(f(node->value));
+    //     map_rec(node->right_child.get(), f, result);
+    // }
+    // void where_rec(const Node* node, const std::function<bool(const T&)>& pred, AVLTree& result) const
+    // {
+    //     if (node == nullptr) return;
 
-        where_rec(node->left_child.get(), pred, result);
-        if (pred(node->data))
-        {
-            result.insert(node->data);
-        }
-        where_rec(node->right_child.get(), pred, result);
-    }
-    void reduce_rec(const Node* node, const std::function<T(const T&, const T&)>& f, T& acc) const
-    {
-        if (node == nullptr) return;
+    //     where_rec(node->left_child.get(), pred, result);
+    //     if (pred(node->value))
+    //     {
+    //         result.insert(node->value);
+    //     }
+    //     where_rec(node->right_child.get(), pred, result);
+    // }
+    // void reduce_rec(const Node* node, const std::function<T(const T&, const T&)>& f, T& acc) const
+    // {
+    //     if (node == nullptr) return;
 
-        reduce_rec(node->left_child.get(), f, acc);
-        acc = f(node->data, acc);
-        reduce_rec(node->right_child.get(), f, acc);
-    }
+    //     reduce_rec(node->left_child.get(), f, acc);
+    //     acc = f(node->value, acc);
+    //     reduce_rec(node->right_child.get(), f, acc);
+    // }
 
     std::unique_ptr<Node> copy_rec(const Node* node) const // копирует поддерево по ноде
     {
         if (node == nullptr) return std::unique_ptr<Node>();
 
-        std::unique_ptr<Node> result = std::make_unique<Node>(node->data);
+        std::unique_ptr<Node> result = std::make_unique<Node>(node->key, node->value);
         result->height = node->height;
         result->left_child = copy_rec(node->left_child.get());
         result->right_child = copy_rec(node->right_child.get());
@@ -288,72 +289,72 @@ public:
     {
         return size_ == 0;
     }
-
-    bool contains(const T& value) const
+    
+    std::optional<V> find(const K& key) const
     {
         const Node* current = root_.get();
         while (current != nullptr)
         {
-            if (comp_(current->data, value))
+            if (comp_(current->key, key))
             {
                 current = current->right_child.get();
             }
-            else if (comp_(value, current->data))
+            else if (comp_(key, current->key))
             {
                 current = current->left_child.get();
             }
             else
             {
-                return true;
+                return current->value;
             }
         }
-        return false;
+        return std::nullopt;
     }
 
-    bool insert(const T& value)
+    bool insert(const K& key, const V& value)
     {
-        return insert_rec(value, root_);
+        return insert_rec(key, value, root_);
     }
 
-    void remove(const T& value)
+    void remove(const K& key)
     {
-        remove_rec(value, root_);
+        remove_rec(key, root_);
     }
 
-    AVLTree map(const std::function<T(const T&)>& f) const
-    {
-        AVLTree result(comp_);
-        map_rec(root_.get(), f, result);
+    // AVLTree map(const std::function<T(const T&)>& f) const
+    // {
+    //     AVLTree result(comp_);
+    //     map_rec(root_.get(), f, result);
 
-        return result;
-    }
+    //     return result;
+    // }
 
-    AVLTree where(const std::function<bool(const T&)>& pred) const
-    {
-        AVLTree result(comp_);
-        where_rec(root_.get(), pred, result);
+    // AVLTree where(const std::function<bool(const T&)>& pred) const
+    // {
+    //     AVLTree result(comp_);
+    //     where_rec(root_.get(), pred, result);
 
-        return result;
-    }
+    //     return result;
+    // }
 
-    T reduce(const std::function<T(const T&, const T&)>& f, const T& start) const
-    {
-        T acc = start;
-        reduce_rec(root_.get(), f, acc);
+    // T reduce(const std::function<T(const T&, const T&)>& f, const T& start) const
+    // {
+    //     T acc = start;
+    //     reduce_rec(root_.get(), f, acc);
 
-        return acc;
-    }
+    //     return acc;
+    // }
     
-    AVLTree get_subtree(const T& value) const // std::optional добавить
+    std::optional<AVLTree> get_subtree(const K& key) const 
     {
         const Node* current = root_.get();
         while(current != nullptr)
         {
-            if (comp_(value, current->data))
+            if (comp_(key, current->key))
             {
                 current = current->left_child.get();
             }
-            else if (comp_(current->data, value))
+            else if (comp_(current->key, key))
             {
                 current = current->right_child.get();
             }
@@ -362,7 +363,7 @@ public:
 
         if (current == nullptr) 
         {
-            throw std::logic_error("Subtree not found");
+            return std::nullopt;
         }
 
         AVLTree result(comp_);
