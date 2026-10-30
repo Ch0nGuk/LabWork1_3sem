@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <string>
 #include <optional>
+#include <memory>
 #include "include/AVLTree.h"
 
 int main()
@@ -94,39 +95,51 @@ int main()
         else std::cout << "[FAIL] balance (1000 sorted inserts)\n";
     }
 
-    // // map
-    // {
-    //     AVLTree<int, std::string> tree;
-    //     tree.insert(1, "v");
-    //     tree.insert(2, "v");
-    //     tree.insert(3, "v");
-    //     AVLTree<int, std::string> mapped = tree.map([](const int& x) { return x * 10; });
-    //     total++;
-    //     if (mapped.find(10) && mapped.find(30) && !mapped.find(1)) { passed++; std::cout << "[OK]   map\n"; }
-    //     else std::cout << "[FAIL] map\n";
-    // }
+    // map: значения string -> int (длина строки), ключи те же
+    {
+        AVLTree<int, std::string> tree;
+        tree.insert(1, "a");
+        tree.insert(2, "bb");
+        tree.insert(3, "ccc");
+        AVLTree<int, int> mapped = tree.map<int>([](const std::string& s) { return (int)s.size(); });
+        total++;
+        if (mapped.size() == 3 && mapped.find(1) == 1 && mapped.find(3) == 3) { passed++; std::cout << "[OK]   map\n"; }
+        else std::cout << "[FAIL] map\n";
+    }
 
-    // // where
-    // {
-    //     AVLTree<int, std::string> tree;
-    //     for (int i = 1; i <= 6; i++) tree.insert(i, "v");
-    //     AVLTree<int, std::string> even = tree.where([](const int& x) { return x % 2 == 0; });
-    //     total++;
-    //     if (even.size() == 3 && even.find(4) && !even.find(3)) { passed++; std::cout << "[OK]   where\n"; }
-    //     else std::cout << "[FAIL] where\n";
-    // }
+    // where: оставить только значения "even"
+    {
+        AVLTree<int, std::string> tree;
+        for (int i = 1; i <= 6; i++) tree.insert(i, (i % 2 == 0) ? "even" : "odd");
+        AVLTree<int, std::string> even = tree.where([](const std::string& s) { return s == "even"; });
+        total++;
+        if (even.size() == 3 && even.find(4) && !even.find(3)) { passed++; std::cout << "[OK]   where\n"; }
+        else std::cout << "[FAIL] where\n";
+    }
 
-    // // reduce: example from the task, [1,2,3], f = 2x + 3y, c = 4 -> 144
-    // {
-    //     AVLTree<int, std::string> tree;
-    //     tree.insert(1, "v");
-    //     tree.insert(2, "v");
-    //     tree.insert(3, "v");
-    //     int result = tree.reduce([](const int& x, const int& y) { return 2 * x + 3 * y; }, 4);
-    //     total++;
-    //     if (result == 144) { passed++; std::cout << "[OK]   reduce\n"; }
-    //     else std::cout << "[FAIL] reduce\n";
-    // }
+    // reduce: пример из задания, [1,2,3], f = 2x + 3y, c = 4 -> 144
+    {
+        AVLTree<int, int> tree;
+        tree.insert(1, 1);
+        tree.insert(2, 2);
+        tree.insert(3, 3);
+        int result = tree.reduce([](const int& x, const int& y) { return 2 * x + 3 * y; }, 4);
+        total++;
+        if (result == 144) { passed++; std::cout << "[OK]   reduce\n"; }
+        else std::cout << "[FAIL] reduce\n";
+    }
+
+    // reduce с порядком обхода: конкатенация в КЛП, дерево 1..3 (корень 2)
+    {
+        AVLTree<int, std::string> tree;
+        tree.insert(1, "1");
+        tree.insert(2, "2");
+        tree.insert(3, "3");
+        std::string result = tree.reduce([](const std::string& x, const std::string& acc) { return acc + x; }, "", AVLTree<int, std::string>::Order::KLP);
+        total++;
+        if (result == "213") { passed++; std::cout << "[OK]   reduce KLP\n"; }
+        else std::cout << "[FAIL] reduce KLP (got " << result << ")\n";
+    }
 
     // copy
     {
@@ -168,6 +181,52 @@ int main()
         total++;
         if (!tree.get_subtree(42)) { passed++; std::cout << "[OK]   get_subtree missing\n"; }
         else std::cout << "[FAIL] get_subtree missing\n";
+    }
+
+    // enumerator: все 6 порядков на дереве 1..7 (корень 4)
+    {
+        typedef AVLTree<int, std::string> Tree;
+        Tree tree;
+        for (int i = 1; i <= 7; i++) tree.insert(i, "v");
+        Tree::Order orders[6] = { Tree::Order::LKP, Tree::Order::LPK, Tree::Order::KLP, Tree::Order::KPL, Tree::Order::PKL, Tree::Order::PLK };
+        std::string names[6] = { "LKP", "LPK", "KLP", "KPL", "PKL", "PLK" };
+        std::string expected[6] = { "1234567", "1325764", "4213657", "4675231", "7654321", "7563124" };
+        for (int i = 0; i < 6; i++)
+        {
+            std::unique_ptr<IEnumerator<Tree::KeyValue>> e = tree.GetEnumerator(orders[i]);
+            std::string got;
+            while (e->MoveNext()) got += std::to_string(e->Current().key);
+            total++;
+            if (got == expected[i]) { passed++; std::cout << "[OK]   enumerator " << names[i] << "\n"; }
+            else std::cout << "[FAIL] enumerator " << names[i] << " (got " << got << ")\n";
+        }
+    }
+
+    // enumerator: пустое дерево
+    {
+        AVLTree<int, std::string> tree;
+        std::unique_ptr<IEnumerator<AVLTree<int, std::string>::KeyValue>> e = tree.GetEnumerator();
+        total++;
+        if (!e->MoveNext()) { passed++; std::cout << "[OK]   enumerator empty\n"; }
+        else std::cout << "[FAIL] enumerator empty\n";
+    }
+
+    // enumerator: Current до MoveNext
+    {
+        AVLTree<int, std::string> tree;
+        tree.insert(1, "v");
+        std::unique_ptr<IEnumerator<AVLTree<int, std::string>::KeyValue>> e = tree.GetEnumerator();
+        total++;
+        try
+        {
+            e->Current();
+            std::cout << "[FAIL] enumerator Current before MoveNext\n";
+        }
+        catch (const std::logic_error&)
+        {
+            passed++;
+            std::cout << "[OK]   enumerator Current before MoveNext\n";
+        }
     }
 
     std::cout << "\nPassed " << passed << " / " << total << "\n";
