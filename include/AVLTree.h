@@ -21,15 +21,20 @@ template <class K, class V, class Comparator = Less<K>>
 class AVLTree
 {
 private:
-    struct Node
+    struct KeyValue
     {
         K key;
         V value;
+        KeyValue(const K& key_, const V& value_) : key(key_), value(value_) {}
+    };
+    struct Node
+    {
+        KeyValue data;
         int height;
         std::unique_ptr<Node> left_child;
         std::unique_ptr<Node> right_child;
 
-        Node(const K& key_, const V& value_) : key(key_), value(value_), height(1), left_child(), right_child() {} 
+        Node(const K& key_, const V& value_) : data(key_, value_), height(1), left_child(), right_child() {} 
     };
 
     std::unique_ptr<Node> root_;
@@ -77,11 +82,11 @@ private:
             size_++;
             return true;
         }
-        if (comp_(slot->key, key))
+        if (comp_(slot->data.key, key))
         {
             ok = insert_rec(key, value, slot->right_child);
         }
-        else if (comp_(key, slot->key))
+        else if (comp_(key, slot->data.key))
         {
             ok = insert_rec(key, value, slot->left_child);
         }
@@ -105,13 +110,13 @@ private:
         {
             throw std::logic_error("Removable value isn't in tree");
         }
-        if (comp_(slot->key, key))
+        if (comp_(slot->data.key, key))
         {
             remove_rec(key, slot->right_child);
             update_height(slot.get());
             balance(slot);
         }
-        else if (comp_(key, slot->key))
+        else if (comp_(key, slot->data.key))
         {
             remove_rec(key, slot->left_child);
             update_height(slot.get());
@@ -233,7 +238,7 @@ private:
     {
         if (node == nullptr) return std::unique_ptr<Node>();
 
-        std::unique_ptr<Node> result = std::make_unique<Node>(node->key, node->value);
+        std::unique_ptr<Node> result = std::make_unique<Node>(node->data.key, node->data.value);
         result->height = node->height;
         result->left_child = copy_rec(node->left_child.get());
         result->right_child = copy_rec(node->right_child.get());
@@ -295,17 +300,17 @@ public:
         const Node* current = root_.get();
         while (current != nullptr)
         {
-            if (comp_(current->key, key))
+            if (comp_(current->data.key, key))
             {
                 current = current->right_child.get();
             }
-            else if (comp_(key, current->key))
+            else if (comp_(key, current->data.key))
             {
                 current = current->left_child.get();
             }
             else
             {
-                return current->value;
+                return current->data.value;
             }
         }
         return std::nullopt;
@@ -350,11 +355,11 @@ public:
         const Node* current = root_.get();
         while(current != nullptr)
         {
-            if (comp_(key, current->key))
+            if (comp_(key, current->data.key))
             {
                 current = current->left_child.get();
             }
-            else if (comp_(current->key, key))
+            else if (comp_(current->data.key, key))
             {
                 current = current->right_child.get();
             }
