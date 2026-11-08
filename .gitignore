@@ -9,3 +9,8 @@
 !*.hpp
 !CMakeLists.txt
 !README.md
+!benchmarks/
+!benchmarks/stress_30_raw.csv
+!benchmarks/stress_30_mean.csv
+!benchmarks/stress_30_mean.svg
+!benchmarks/stress_30_mean.png
