@@ -41,7 +41,7 @@ private:
         std::unique_ptr<Node> left_child;
         std::unique_ptr<Node> right_child;
 
-        Node(const K& key_, const V& value_) : data(key_, value_), height(1), left_child(), right_child() {} 
+        Node(const K& key_, const V& value_) : data(key_, value_), height(1), left_child(), right_child() {}
     };
 
     std::unique_ptr<Node> root_;
@@ -53,7 +53,7 @@ private:
         return node->height;
     }
 
-    void update_height(Node* node) 
+    void update_height(Node* node)
     {
         node->height = 1 + std::max(height(node->left_child.get()), height(node->right_child.get()));
     }
@@ -106,7 +106,7 @@ private:
             update_height(slot.get());
             balance(slot);
         }
-        
+
         return ok;
     }
 
@@ -161,7 +161,7 @@ private:
             {
                 rotate_rl(slot);
             }
-            else 
+            else
             {
                 rotate_l(slot);
             }
@@ -228,6 +228,24 @@ private:
     {
         if (node == nullptr) return 0;
         return 1 + size_rec(node->left_child.get()) + size_rec(node->right_child.get());
+    }
+
+    void for_range_rec(const Node* node, const K& low, const K& high, const std::function<void(const K& key, const V& value)>& visit) const
+    {
+        if (node == nullptr) return;
+
+        if (low < node->data.key) // слева еще могут значения из диапазона
+        {
+            for_range_rec(node->left_child.get(), low, high, visit);
+        }
+        if (!(node->data.key < low) && !(high < node->data.key)) // сама нода в диапазоне
+        {
+            visit(node->data.key, node->data.value);
+        }
+        if (node->data.key < high) // справа еще могут быть значения из диапазона
+        {
+            for_range_rec(node->right_child.get(), low, high, visit);
+        }
     }
 
 public:
@@ -420,7 +438,7 @@ public:
 
     AVLTree(AVLTree&& other) noexcept : root_(std::move(other.root_)), size_(other.size_)
     {
-        other.size_ = 0;    
+        other.size_ = 0;
     }
 
     AVLTree& operator=(const AVLTree& other)
@@ -450,7 +468,7 @@ public:
     {
         return size_ == 0;
     }
-    
+
     std::optional<V> find(const K& key) const
     {
         const Node* current = root_.get();
@@ -480,6 +498,15 @@ public:
     void remove(const K& key)
     {
         remove_rec(key, root_);
+    }
+
+    void for_range(const K& low, const K& high, const std::function<void(const K& key, const V& value)>& visit) const
+    {
+        if (high < low)
+        {
+            throw std::invalid_argument("high is lower low");
+        }
+        for_range_rec(root_.get(), low, high, visit);
     }
 
     template <class U>
@@ -526,7 +553,7 @@ public:
         return Iterator(this);
     }
 
-    std::optional<AVLTree> get_subtree(const K& key) const 
+    std::optional<AVLTree> get_subtree(const K& key) const
     {
         const Node* current = root_.get();
         while(current != nullptr)
@@ -542,7 +569,7 @@ public:
             else break;
         }
 
-        if (current == nullptr) 
+        if (current == nullptr)
         {
             return std::nullopt;
         }
@@ -550,7 +577,7 @@ public:
         AVLTree result;
         result.root_ = copy_rec(current);
         result.size_ = size_rec(current);
-        
+
         return result;
     }
 
