@@ -7,7 +7,7 @@
 #include <optional>
 #include <concepts>
 
-#include "DynamicArray.h"
+#include "Sequence/DynamicArray.h"
 
 
 template <class K, class V>
@@ -41,7 +41,7 @@ private:
         std::unique_ptr<Node> left_child;
         std::unique_ptr<Node> right_child;
 
-        Node(const K& key_, const V& value_) : data(key_, value_), height(1), left_child(), right_child() {}
+        Node(const K& key_, const V& value_) : data(key_, value_), height(1), left_child(), right_child() {} 
     };
 
     std::unique_ptr<Node> root_;
@@ -53,7 +53,7 @@ private:
         return node->height;
     }
 
-    void update_height(Node* node)
+    void update_height(Node* node) 
     {
         node->height = 1 + std::max(height(node->left_child.get()), height(node->right_child.get()));
     }
@@ -106,7 +106,7 @@ private:
             update_height(slot.get());
             balance(slot);
         }
-
+        
         return ok;
     }
 
@@ -161,7 +161,7 @@ private:
             {
                 rotate_rl(slot);
             }
-            else
+            else 
             {
                 rotate_l(slot);
             }
@@ -438,7 +438,7 @@ public:
 
     AVLTree(AVLTree&& other) noexcept : root_(std::move(other.root_)), size_(other.size_)
     {
-        other.size_ = 0;
+        other.size_ = 0;    
     }
 
     AVLTree& operator=(const AVLTree& other)
@@ -468,7 +468,7 @@ public:
     {
         return size_ == 0;
     }
-
+    
     std::optional<V> find(const K& key) const
     {
         const Node* current = root_.get();
@@ -490,14 +490,54 @@ public:
         return std::nullopt;
     }
 
+    const V* find_ptr(const K& key) const
+    {
+        const Node* current = root_.get();
+        while (current != nullptr)
+        {
+            if (current->data.key < key)
+            {
+                current = current->right_child.get();
+            }
+            else if (key < current->data.key)
+            {
+                current = current->left_child.get();
+            }
+            else
+            {
+                return &(current->data.value);
+            }
+        }
+        return nullptr;
+    }
+
     bool insert(const K& key, const V& value)
     {
         return insert_rec(key, value, root_);
     }
 
-    void remove(const K& key)
+    template <class Item>
+    requires std::same_as<V, DynamicArray<Item>> // этот метод есть только у деревьев, хранящих DynamicArray
+    void add_value(const K& key, const Item& value)
     {
-        remove_rec(key, root_);
+        Node* current = root_.get();
+        while (true) 
+        {
+            if (current == nullptr) 
+            {
+                V array;
+                array.Append(value);
+                insert(key, array);
+                break;
+            }
+            else if (key < current->data.key) current = current->left_child.get();
+            else if (current->data.key < key) current = current->right_child.get();
+            else // key == current->data.key
+            {
+                current->data.value.Append(value);
+                break;
+            }
+        }
     }
 
     void for_range(const K& low, const K& high, const std::function<void(const K& key, const V& value)>& visit) const
@@ -505,8 +545,13 @@ public:
         if (high < low)
         {
             throw std::invalid_argument("high is lower low");
-        }
+        }  
         for_range_rec(root_.get(), low, high, visit);
+    }
+
+    void remove(const K& key)
+    {
+        remove_rec(key, root_);
     }
 
     template <class U>
@@ -543,6 +588,7 @@ public:
         return acc;
     }
 
+    
     Iterator begin(Order order = Order::LKP) const
     {
         return Iterator(this, root_.get(), height(root_.get()), order);
@@ -553,7 +599,7 @@ public:
         return Iterator(this);
     }
 
-    std::optional<AVLTree> get_subtree(const K& key) const
+    std::optional<AVLTree> get_subtree(const K& key) const 
     {
         const Node* current = root_.get();
         while(current != nullptr)
@@ -569,7 +615,7 @@ public:
             else break;
         }
 
-        if (current == nullptr)
+        if (current == nullptr) 
         {
             return std::nullopt;
         }
@@ -577,10 +623,9 @@ public:
         AVLTree result;
         result.root_ = copy_rec(current);
         result.size_ = size_rec(current);
-
+        
         return result;
     }
-
 };
 
 
