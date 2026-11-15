@@ -6,8 +6,7 @@
 #include <functional>
 #include <optional>
 #include <concepts>
-
-#include "Sequence/DynamicArray.h"
+#include "DynamicArray.h"
 
 
 template <class K, class V>
@@ -514,30 +513,6 @@ public:
     bool insert(const K& key, const V& value)
     {
         return insert_rec(key, value, root_);
-    }
-
-    template <class Item>
-    requires std::same_as<V, DynamicArray<Item>> // этот метод есть только у деревьев, хранящих DynamicArray
-    void add_value(const K& key, const Item& value)
-    {
-        Node* current = root_.get();
-        while (true) 
-        {
-            if (current == nullptr) 
-            {
-                V array;
-                array.Append(value);
-                insert(key, array);
-                break;
-            }
-            else if (key < current->data.key) current = current->left_child.get();
-            else if (current->data.key < key) current = current->right_child.get();
-            else // key == current->data.key
-            {
-                current->data.value.Append(value);
-                break;
-            }
-        }
     }
 
     void for_range(const K& low, const K& high, const std::function<void(const K& key, const V& value)>& visit) const
