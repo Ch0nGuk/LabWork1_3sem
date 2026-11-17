@@ -6,7 +6,8 @@
 #include <functional>
 #include <optional>
 #include <concepts>
-#include "DynamicArray.h"
+#include <utility>
+#include "StandartTraversal.h"
 
 
 template <class K, class V>
@@ -248,149 +249,101 @@ private:
     }
 
 public:
-    class Iterator
+    class NodeView
     {
     private:
-        DynamicArray<const Node*> stack_;
-        int count_; // число элементов в стеке
-        const Node* current_;
-        Order order_;
-        const AVLTree* owner_;
-
-        void push(const Node* node)
-        {
-            stack_.Set(count_, node);
-            count_++;
-        }
-
-        const Node* pop()
-        {
-            count_--;
-            return stack_.Get(count_);
-        }
-
-        const Node* top() const
-        {
-            return stack_.Get(count_ - 1);
-        }
-
-        bool is_mirrored() const // П раньше Л
-        {
-            return order_ == Order::KPL || order_ == Order::PKL || order_ == Order::PLK;
-        }
-
-        const Node* first(const Node* node) const // поддерево, которое обходится первым
-        {
-            if (is_mirrored()) return node->right_child.get();
-            return node->left_child.get();
-        }
-
-        const Node* second(const Node* node) const // поддерево, которое обходится вторым
-        {
-            if (is_mirrored()) return node->left_child.get();
-            return node->right_child.get();
-        }
-
-        void push_first(const Node* node) // для ЛКП/ПКЛ: спуск по первым детям
-        {
-            while (node != nullptr)
-            {
-                push(node);
-                node = first(node);
-            }
-        }
-
-        void push_to_leaf(const Node* node) // для ЛПК/ПЛК: спуск до листа, первый ребенок в приоритете
-        {
-            while (node != nullptr)
-            {
-                push(node);
-                if (first(node) != nullptr)
-                {
-                    node = first(node);
-                }
-                else
-                {
-                    node = second(node);
-                }
-            }
-        }
-
-        void move_next_root_first() // КЛП/КПЛ
-        {
-            current_ = pop();
-            if (second(current_) != nullptr) push(second(current_)); // второй кладем раньше, чтобы достать позже
-            if (first(current_) != nullptr) push(first(current_));
-        }
-
-        void move_next_root_middle() // ЛКП/ПКЛ
-        {
-            current_ = pop();
-            push_first(second(current_));
-        }
-
-        void move_next_root_last() // ЛПК/ПЛК
-        {
-            current_ = pop();
-            if (count_ > 0)
-            {
-                const Node* parent = top();
-                if (first(parent) == current_) // вернулись из первого поддерева, теперь обходим второе
-                {
-                    push_to_leaf(second(parent));
-                }
-            }
-        }
-
-        void move_next()
-        {
-            if (count_ == 0)
-            {
-                current_ = nullptr;
-                return;
-            }
-
-            if (order_ == Order::KLP || order_ == Order::KPL)
-            {
-                move_next_root_first();
-            }
-            else if (order_ == Order::LKP || order_ == Order::PKL)
-            {
-                move_next_root_middle();
-            }
-            else
-            {
-                move_next_root_last();
-            }
-        }
+        const Node* node_;
 
         friend class AVLTree;
 
-        Iterator(const AVLTree* owner, const Node* root, int height, Order order) : stack_(height + 1, nullptr), count_(0), current_(nullptr), order_(order), owner_(owner)
-        {
-            if (order_ == Order::KLP || order_ == Order::KPL)
-            {
-                if (root != nullptr) push(root);
-            }
-            else if (order_ == Order::LKP || order_ == Order::PKL)
-            {
-                push_first(root);
-            }
-            else
-            {
-                push_to_leaf(root);
-            }
-            move_next();
-        }
-
-        Iterator(const AVLTree* owner) : stack_(), count_(0), current_(nullptr), order_(Order::LKP), owner_(owner) {}
+        explicit NodeView(const Node* node) : node_(node) {}
 
     public:
-        Iterator() : stack_(), count_(0), current_(nullptr), order_(Order::LKP), owner_(nullptr) {}
+        NodeView() : node_(nullptr) {}
+
+        const KeyValue& data() const
+        {
+            if (node_ == nullptr) throw std::logic_error("Node is empty");
+            return node_->data;
+        }
+
+        NodeView left() const
+        {
+            if (node_ == nullptr) return NodeView();
+            return NodeView(node_->left_child.get());
+        }
+
+        NodeView right() const
+        {
+            if (node_ == nullptr) return NodeView();
+            return NodeView(node_->right_child.get());
+        }
+
+        explicit operator bool() const
+        {
+            return node_ != nullptr;
+        }
+
+        bool operator==(const NodeView& other) const
+        {
+            return node_ == other.node_;
+        }
+    };
+
+    class ITraversal
+    {
+    public:
+        virtual ~ITraversal() = default;
+        virtual void start(NodeView root) = 0;
+        virtual NodeView next() = 0;
+        virtual std::unique_ptr<ITraversal> clone() const = 0;
+    };
+
+    using StandartTraversal = ::StandartTraversal<AVLTree>;
+
+    class Iterator
+    {
+    private:
+        std::unique_ptr<ITraversal> traversal_;
+        NodeView current_;
+        const AVLTree* owner_;
+
+        friend class AVLTree;
+
+        Iterator(const AVLTree* owner, NodeView root, const ITraversal& traversal) : traversal_(traversal.clone()), current_(), owner_(owner)
+        {
+            traversal_->start(root);
+            current_ = traversal_->next();
+        }
+
+        Iterator(const AVLTree* owner) : traversal_(), current_(), owner_(owner) {}
+
+    public:
+        Iterator() : traversal_(), current_(), owner_(nullptr) {}
+
+        Iterator(const Iterator& other) : traversal_(), current_(other.current_), owner_(other.owner_)
+        {
+            if (other.traversal_) traversal_ = other.traversal_->clone();
+        }
+
+        Iterator& operator=(const Iterator& other)
+        {
+            if (this == &other) return *this;
+
+            std::unique_ptr<ITraversal> copy;
+            if (other.traversal_) copy = other.traversal_->clone();
+            traversal_ = std::move(copy);
+            current_ = other.current_;
+            owner_ = other.owner_;
+            return *this;
+        }
+
+        Iterator(Iterator&& other) noexcept = default;
+        Iterator& operator=(Iterator&& other) noexcept = default;
 
         Iterator& operator++()
         {
-            move_next();
+            if (traversal_) current_ = traversal_->next();
             return *this;
         }
 
@@ -403,11 +356,11 @@ public:
 
         const KeyValue& operator*() const
         {
-            if (current_ == nullptr)
+            if (!current_)
             {
                 throw std::logic_error("Iterator is not on an element");
             }
-            return current_->data;
+            return current_.data();
         }
 
         const KeyValue* operator->() const
@@ -418,8 +371,7 @@ public:
         bool operator==(const Iterator& other) const
         {
             if (owner_ != other.owner_) return false;
-            if (current_ == nullptr || other.current_ == nullptr) return current_ == other.current_;
-            return current_ == other.current_ && order_ == other.order_;
+            return current_ == other.current_;
         }
 
         bool operator!=(const Iterator& other) const
@@ -556,7 +508,8 @@ public:
     V reduce(const std::function<V(const V&, const V&)>& f, const V& start, Order order = Order::LKP) const
     {
         V acc = start;
-        for (Iterator it = begin(order); it != end(); ++it)
+        StandartTraversal traversal(order);
+        for (Iterator it = begin(traversal); it != end(); ++it)
         {
             acc = f(it->value, acc);
         }
@@ -564,9 +517,9 @@ public:
     }
 
     
-    Iterator begin(Order order = Order::LKP) const
+    Iterator begin(const ITraversal& traversal = StandartTraversal{}) const
     {
-        return Iterator(this, root_.get(), height(root_.get()), order);
+        return Iterator(this, NodeView(root_.get()), traversal);
     }
 
     Iterator end() const

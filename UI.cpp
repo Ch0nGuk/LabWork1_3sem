@@ -166,7 +166,8 @@ namespace
 
         const std::size_t limit = 50;
         std::size_t printed = 0;
-        for (Tree::Iterator it = tree.begin(order); it != tree.end() && printed < limit; ++it)
+        Tree::StandartTraversal traversal(order);
+        for (Tree::Iterator it = tree.begin(traversal); it != tree.end() && printed < limit; ++it)
         {
             if (printed > 0) std::cout << ", ";
             std::cout << it->key << ":" << it->value;

@@ -277,7 +277,8 @@ int RunTests()
         std::string expected[6] = { "1234567", "1325764", "4213657", "4675231", "7654321", "7563124" };
         for (int i = 0; i < 6; i++)
         {
-            Tree::Iterator it = tree.begin(orders[i]);
+            Tree::StandartTraversal traversal(orders[i]);
+            Tree::Iterator it = tree.begin(traversal);
             std::string got;
             while (it != tree.end())
             {
@@ -341,6 +342,46 @@ int RunTests()
         total++;
         if (got == "123") { passed++; std::cout << "[OK]   iterator range-based for\n"; }
         else std::cout << "[FAIL] iterator range-based for (got " << got << ")\n";
+    }
+
+    // iterator: передача стратегии обхода
+    {
+        typedef AVLTree<int, std::string> Tree;
+        Tree tree;
+        for (int i = 1; i <= 7; i++) tree.insert(i, "v");
+        Tree::StandartTraversal traversal(Tree::Order::KPL);
+        Tree::Iterator it = tree.begin(traversal);
+        std::string got;
+        while (it != tree.end())
+        {
+            got += std::to_string(it->key);
+            ++it;
+        }
+        total++;
+        if (got == "4675231") { passed++; std::cout << "[OK]   iterator traversal strategy\n"; }
+        else std::cout << "[FAIL] iterator traversal strategy (got " << got << ")\n";
+    }
+
+    // iterator: копии сохраняют свое состояние обхода
+    {
+        typedef AVLTree<int, std::string> Tree;
+        Tree tree;
+        for (int i = 1; i <= 7; i++) tree.insert(i, "v");
+        Tree::StandartTraversal traversal(Tree::Order::KLP);
+        Tree::Iterator it = tree.begin(traversal);
+        ++it;
+        Tree::Iterator copy = it;
+        ++it;
+        bool independent = copy->key == 2 && it->key == 1;
+        ++copy;
+        independent = independent && copy->key == 1;
+        Tree::Iterator assigned = tree.end();
+        assigned = copy;
+        ++copy;
+        independent = independent && assigned->key == 1 && copy->key == 3;
+        total++;
+        if (independent) { passed++; std::cout << "[OK]   iterator independent copy\n"; }
+        else std::cout << "[FAIL] iterator independent copy\n";
     }
 
     const int stress_sizes[] = { 10000, 100000, 1000000, 2000000 };
