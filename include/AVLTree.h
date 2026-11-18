@@ -419,6 +419,27 @@ public:
     {
         return size_ == 0;
     }
+
+    bool contains(const K& key) const
+    {
+        const Node* current = root_.get();
+        while (current != nullptr)
+        {
+            if (current->data.key < key)
+            {
+                current = current->right_child.get();
+            }
+            else if (key < current->data.key)
+            {
+                current = current->left_child.get();
+            }
+            else
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     
     std::optional<V> find(const K& key) const
     {
